@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::f32::consts::PI;
 use std::fs::File;
@@ -5,8 +6,23 @@ use std::io::prelude::*;
 use std::path::Path;
 
 const SAMPLE_RATE: u32 = 44100;
-const DURATION_SECONDS: u32 = 2;
-const MIDDLE_A: f32 = 440.0;
+const DURATION_SECONDS: u32 = 3;
+
+pub struct Notes;
+
+impl Notes {
+    pub fn all() -> HashMap<&'static str, f32> {
+        HashMap::from([
+            ("C", 261.63),
+            ("D", 293.66),
+            ("E", 329.63),
+            ("F", 349.23),
+            ("G", 392.00),
+            ("A", 440.00),
+            ("B", 493.88),
+        ])
+    }
+}
 
 fn main() {
     let _args: Vec<String> = env::args().collect();
@@ -60,9 +76,27 @@ fn write_header(mut f: &File, header: Vec<u8>) {
 
 fn generate_samples(num_samples: u32) -> Vec<i16> {
     let mut samples: Vec<i16> = Vec::with_capacity(num_samples as usize);
+    let notes = Notes::all();
 
-    for t in (0..SAMPLE_RATE).map(|x| x as f32 / SAMPLE_RATE as f32) {
-        let sample = (t * MIDDLE_A * 2.0 * PI).sin();
+    let note_duration = num_samples / 5 as u32;
+
+    for (i, t) in (0..num_samples)
+        .map(|x| x as f32 / SAMPLE_RATE as f32)
+        .enumerate()
+    {
+        let section = i / note_duration as usize;
+        let sample = match section {
+            0 => (t * notes["C"] * 2.0 * PI).sin(),
+            1 => (t * notes["E"] * 2.0 * PI).sin(),
+            2 => (t * notes["G"] * 2.0 * PI).sin(),
+            _ => {
+                let c = (t * notes["C"] * 2.0 * PI).sin();
+                let e = (t * notes["E"] * 2.0 * PI).sin();
+                let g = (t * notes["G"] * 2.0 * PI).sin();
+                (c + e + g) / 3.0 // avoid clipping
+            }
+        };
+
         let amplitude = i16::MAX as f32;
         samples.push((sample * amplitude) as i16);
     }
